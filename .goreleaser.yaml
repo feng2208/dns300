@@ -2,8 +2,8 @@ version: 2
 project_name: dns300
 
 builds:
-  - main: ./cmd/dns300/
   - id: default-build
+    main: ./cmd/dns300/
     env:
       - CGO_ENABLED=0
     goos:
@@ -21,6 +21,7 @@ builds:
 
 
   - id: mips-build
+    main: ./cmd/dns300/
     env:
       - CGO_ENABLED=0
     goos:
