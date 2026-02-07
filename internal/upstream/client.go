@@ -1,9 +1,9 @@
 package upstream
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -122,14 +122,12 @@ func (c *Client) queryDoH(ctx context.Context, req *dns.Msg, urlStr string, tlsV
 		return nil, err
 	}
 
-	// DoH GET request with base64url encoded query
-	b64 := base64.RawURLEncoding.EncodeToString(packed)
-	reqUrl := fmt.Sprintf("%s?dns=%s", urlStr, b64)
-
-	httpReq, err := http.NewRequestWithContext(ctx, "GET", reqUrl, nil)
+	// DoH POST request with DNS message in body
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", urlStr, bytes.NewReader(packed))
 	if err != nil {
 		return nil, err
 	}
+	httpReq.Header.Set("Content-Type", "application/dns-message")
 	httpReq.Header.Set("Accept", "application/dns-message")
 
 	// Create custom client if tlsVerify needs to be changed (optimized to reuse if possible in future)
@@ -139,6 +137,7 @@ func (c *Client) queryDoH(ctx context.Context, req *dns.Msg, urlStr string, tlsV
 		// Clone transport to safely modify TLS config
 		transport := client.Transport.(*http.Transport).Clone()
 		transport.TLSClientConfig.InsecureSkipVerify = true
+		transport.ForceAttemptHTTP2 = true // Ensure HTTP/2 is enabled after cloning
 		client = &http.Client{
 			Timeout:   client.Timeout,
 			Transport: transport,
