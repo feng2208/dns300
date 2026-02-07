@@ -15,10 +15,19 @@ import (
 	"github.com/miekg/dns"
 )
 
+var Version = "0.0.0"
+
 func main() {
 	configFile := flag.String("config", "config.yaml", "Path to configuration file")
 	port := flag.Int("port", 53, "Port to listen on")
+	v := flag.Bool("v", false, "Show version")
+	version := flag.Bool("version", false, "Show version")
 	flag.Parse()
+
+	if *v || *version {
+		fmt.Printf("%s\n", Version)
+		return
+	}
 
 	// Load Configuration
 	cfg, err := config.Load(*configFile)
