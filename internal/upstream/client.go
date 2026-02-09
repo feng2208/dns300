@@ -15,16 +15,26 @@ import (
 )
 
 type Client struct {
-	httpClient *http.Client
+	httpClientVerify   *http.Client // TLS verification enabled
+	httpClientInsecure *http.Client // TLS verification disabled
 }
 
 func NewClient() *Client {
 	return &Client{
-		httpClient: &http.Client{
+		httpClientVerify: &http.Client{
 			Timeout: 5 * time.Second,
 			Transport: &http.Transport{
-				Proxy:           http.ProxyFromEnvironment,
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: false}, // Default to strict
+				Proxy:             http.ProxyFromEnvironment,
+				TLSClientConfig:   &tls.Config{InsecureSkipVerify: false},
+				ForceAttemptHTTP2: true,
+			},
+		},
+		httpClientInsecure: &http.Client{
+			Timeout: 5 * time.Second,
+			Transport: &http.Transport{
+				Proxy:             http.ProxyFromEnvironment,
+				TLSClientConfig:   &tls.Config{InsecureSkipVerify: true},
+				ForceAttemptHTTP2: true,
 			},
 		},
 	}
@@ -130,18 +140,10 @@ func (c *Client) queryDoH(ctx context.Context, req *dns.Msg, urlStr string, tlsV
 	httpReq.Header.Set("Content-Type", "application/dns-message")
 	httpReq.Header.Set("Accept", "application/dns-message")
 
-	// Create custom client if tlsVerify needs to be changed (optimized to reuse if possible in future)
-	// For now, if verification is disabled, we clone the transport and disable it.
-	client := c.httpClient
+	// Select pre-initialized client based on TLS verification setting
+	client := c.httpClientVerify
 	if !tlsVerify {
-		// Clone transport to safely modify TLS config
-		transport := client.Transport.(*http.Transport).Clone()
-		transport.TLSClientConfig.InsecureSkipVerify = true
-		transport.ForceAttemptHTTP2 = true // Ensure HTTP/2 is enabled after cloning
-		client = &http.Client{
-			Timeout:   client.Timeout,
-			Transport: transport,
-		}
+		client = c.httpClientInsecure
 	}
 
 	resp, err := client.Do(httpReq)
